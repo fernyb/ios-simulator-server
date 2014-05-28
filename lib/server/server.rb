@@ -183,71 +183,30 @@ class SeleniumServer < Sinatra::Base
     end
 
     get "/session/:sessionId/element/:id/enabled" do
-      conn = $connections[params[:sessionId]]
-      bridge = conn[:bridge]
-      result_value = bridge.enabled?(params[:id])
-
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class     => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.enabled?(params[:id])
+      end
     end
 
     # Determine if an element is currently displayed.
     get "/session/:sessionId/element/:id/displayed" do
-      puts params.inspect, "\n\n"
-      conn = $connections[params[:sessionId]]
-      bridge = conn[:bridge]
-      result_value = bridge.displayed?(params[:id])
-
-      # {"status":0,
-      # "sessionId":"31c42c95-4227-4beb-9767-5c671e605458",
-      # "value":true,
-      # "state":null,
-      # "class":"org.openqa.selenium.remote.Response",
-      # "hCode":1351626789}
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class     => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.displayed?(params[:id])
+      end
     end
 
 
     get '/session/:sessionId/element/:id/name' do
-      conn = $connections[params[:sessionId]]
-      result_value = conn[:bridge].name(params[:id])
-
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.name(params[:id])
+      end
     end
 
 
     get '/session/:sessionId/element/:id/text' do
-      conn = $connections[params[:sessionId]]
-      result_value = conn[:bridge].text(params[:id])
-
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.text(params[:id])
+      end
     end
 
     get '/session/:sessionId/element/:id/attribute/:name' do
