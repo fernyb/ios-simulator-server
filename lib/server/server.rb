@@ -6,7 +6,7 @@ require 'json'
 require 'active_support'
 require 'active_support/hash_with_indifferent_access'
 require 'net/http'
-require File.expand_path(File.dirname(__FILE__)) + "/server/bridge.rb"
+require File.expand_path(File.dirname(__FILE__)) + "/bridge.rb"
 
 
 class SeleniumServer < Sinatra::Base
@@ -40,7 +40,7 @@ namespace "/wd/hub" do
     pages = JSON.parse(res.body)
     websocket_uri = pages.first['webSocketDebuggerUrl']
 
-    $connections[_uuid_][:bridge] = Bridge.new(websocket_uri)
+    $connections[_uuid_][:bridge] = Server::Bridge.new(websocket_uri)
 
     {
       :status    => 0,
