@@ -16,8 +16,41 @@ class SeleniumServer < Sinatra::Base
   set :port,    4444
   set :bind,    '0.0.0.0'
 
-
   $connections = {}
+
+  helpers do
+    def conn
+      conn = $connections[params[:sessionId]]
+    end
+
+    def json_body
+      begin
+        JSON.parse(request.body.read)
+      rescue JSON::ParserError => e
+        $stdout.puts "* Failed to parse JSON from request.body"
+        nil
+      end
+    end
+
+    def result_response(type=nil, &block)
+      result_value = nil
+      json = json_body
+      result_value = block.call(conn[:bridge], json)
+
+      if type == :json
+        content_type :json
+        {
+          :status => 0,
+          :value => result_value,
+          :state => nil,
+          :class => "org.openqa.selenium.remote.Response"
+        }.to_json
+      else
+        status 204
+        ''
+      end
+    end
+  end
 
   # Documentation:
   # https://code.google.com/p/selenium/wiki/JsonWireProtocol#/sessions
@@ -79,24 +112,16 @@ class SeleniumServer < Sinatra::Base
 
     # Retrieve the URL of the current page.
     get "/session/:sessionId/url" do
-      puts params.inspect, "\n\n"
-      puts request.body.read, "\n\n"
-
-
-      status 204
-      # body ''
-      ''
+      result_response :json do |bridge|
+        bridge.current_url
+      end
     end
 
     # Navigate to a new URL.
     post "/session/:sessionId/url" do
-      json = JSON(request.body.read)
-      url = json['url']
-      browser = $connections[params[:sessionId]][:bridge]
-      browser.goto(url)
-
-      status 204
-      ''
+      result_response do |bridge, json|
+        bridge.goto(json['url'])
+      end
     end
 
     # Refresh the current page.
@@ -329,17 +354,9 @@ class SeleniumServer < Sinatra::Base
     end
 
     delete "/session/:sessionId/cookie" do
-      conn = $connections[params[:sessionId]]
-      json = JSON.parse(request.body.read)
-      result_value = conn[:bridge].delete_cookie(json['name'])
-
-      content_type :json
-      {
-        :status => 0,
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.delete_cookie(json['name']) if json
+      end
     end
 
     get "/session/:sessionId/reload" do
