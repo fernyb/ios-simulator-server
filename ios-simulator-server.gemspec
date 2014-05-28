@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = Ios::Simulator::Server::VERSION
   spec.authors       = ["Fernando Barajas"]
   spec.email         = ["fb2114@yp.com"]
-  spec.summary       = %q{TODO: Write a short summary. Required.}
-  spec.description   = %q{TODO: Write a longer description. Optional.}
+  spec.summary       = %q{A Selenium Server for iOS Simulator only}
+  spec.description   = %q{A Selenium Server for iOS Simulator only}
   spec.homepage      = ""
   spec.license       = "MIT"
 
