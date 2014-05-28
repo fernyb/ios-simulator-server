@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+
+require 'ios-simulator-server/server'
+
+SeleniumServer.run!
