@@ -11,7 +11,10 @@ require "ios-simulator-server/server/bridge.rb"
 
 class SeleniumServer < Sinatra::Base
 
-set :server, 'thin'
+set :server,  'thin'
+set :port,    4444
+set :bind,    '0.0.0.0'
+
 
 $connections = {}
 
