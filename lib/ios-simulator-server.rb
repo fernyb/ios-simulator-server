@@ -2,6 +2,8 @@ require 'selenium-webdriver'
 require 'ios/simulator/server'
 
 
+if defined?(Capybara) && defined?(Capybara::Selenium)
+
 Selenium::WebDriver::Remote::Bridge.command :getNetworkTraffic, :get,    "/wd/hub/session/:session_id/network_traffic"
 Selenium::WebDriver::Remote::Bridge.command :getCookie,         :get,    "/wd/hub/session/:session_id/cookie"
 Selenium::WebDriver::Remote::Bridge.command :deleteCookie,      :delete, "/wd/hub/session/:session_id/cookie"
@@ -44,4 +46,6 @@ Capybara::Selenium::Driver.class_eval do
     result = browser.send(:bridge).send(:execute, :setHeaders, {}, { :headers => header_values })
     result
   end
+end
+
 end
