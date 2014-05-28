@@ -159,45 +159,22 @@ class SeleniumServer < Sinatra::Base
 
     # Search for multiple elements on the page, starting from the identified element.
     post "/session/:sessionId/elements" do
-      conn = $connections[params[:sessionId]]
-      json = JSON(request.body.read)
-      elements = conn[:bridge].elements(json['using'], json['value'])
-
-      content_type :json
-      j = {
-        :status    => 0,
-        :sessionId => params[:sessionId],
-        :value     => elements,
-        :class     => "org.openqa.selenium.remote.Response"
-      }.to_json
-      puts j
-      j
+      result_response :json do |bridge, json|
+        bridge.elements(json['using'], json['value'])
+      end
     end
 
     post "/session/:sessionId/element/:id/elements" do
-      conn = $connections[params[:sessionId]]
-      bridge = conn[:bridge]
-      json = JSON.parse(request.body.read)
-      elements = bridge.child_elements(params[:id], json['using'], json['value'])
-
-      content_type :json
-      {
-        :status    => 0,
-        :sessionId => params[:sessionId],
-        :value     => elements,
-        :class     => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.child_elements(params[:id], json['using'], json['value'])
+      end
     end
 
     # Click on an element.
     post "/session/:sessionId/element/:id/click" do
-      puts params.inspect, "\n\n"
-      conn = $connections[params[:sessionId]]
-      bridge = conn[:bridge]
-      bridge.click(params[:id])
-
-      status 204
-      ''
+      result_response do |bridge, json|
+        bridge.click(params[:id])
+      end
     end
 
 
