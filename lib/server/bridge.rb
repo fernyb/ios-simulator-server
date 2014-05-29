@@ -203,10 +203,33 @@ class Bridge
 
   def click(element_id)
     js = %Q{
-     var evt = document.createEvent("MouseEvents");
-     evt.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-     var element = __elements[#{ element_id }];
-     element.dispatchEvent(evt);
+      var element = __elements[#{ element_id }];
+
+      var x = element.offsetWidth / 2;
+      var y = element.offsetHeight / 2;
+      var event = document.createEvent('Event'),
+      touch = { pageX: x, pageY: y, target: element };
+
+      event.initEvent('touchstart', true, true);
+      event.touches = [touch];
+      element.dispatchEvent(event);
+
+      event = document.createEvent('Event'),
+      event.initEvent('touchend', true, true);
+      event.touches = [touch];
+      element.dispatchEvent(event);
+
+      event = document.createEvent('Event'),
+      event.initEvent('click', true, true);
+      event.touches = [touch];
+      element.dispatchEvent(event);
+
+      if(element.tagName == 'INPUT' || element.tagName == 'input') {
+        event = document.createEvent('Event'),
+        event.initEvent('focus', true, true);
+        event.touches = [touch];
+        element.dispatchEvent(event);
+      }
     }
     result = @debugger.runtime_evaluate(js)
     result = result.first
