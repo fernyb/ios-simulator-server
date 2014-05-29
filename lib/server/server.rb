@@ -1,33 +1,52 @@
 require 'thin'
 require 'sinatra'
 require 'sinatra/contrib'
+require 'sinatra/verbose'
 require 'securerandom'
 require 'json'
 require 'active_support'
 require 'active_support/hash_with_indifferent_access'
+require 'active_support/core_ext/object/blank'
 require 'net/http'
 require File.expand_path(File.dirname(__FILE__)) + "/bridge.rb"
 
 
 class SeleniumServer < Sinatra::Base
   register Sinatra::Namespace
+  register Sinatra::Verbose
+
+  enable :logging
 
   set :server,  'thin'
   set :port,    4444
   set :bind,    '0.0.0.0'
 
-  $connections = {}
 
   helpers do
+    def connections
+      $connections ||= {}
+    end
+
+    def set_connection(uuid, val)
+      connections
+      $connections[uuid] = val
+    end
+
     def conn
-      conn = $connections[params[:sessionId]]
+      c = $connections[ params[:sessionId] ]
+      if c.present? 
+        c
+      else
+        raise "No Connection Found with sessionId: #{ params[:sessionId] }"
+      end
     end
 
     def json_body
+      body_str = request.body.read
       begin
-        JSON.parse(request.body.read)
+        JSON.parse(body_str)
       rescue JSON::ParserError => e
-        $stdout.puts "* Failed to parse JSON from request.body"
+        $stdout.puts "* Failed to parse JSON from request.body #{body_str}"
         nil
       end
     end
@@ -50,6 +69,13 @@ class SeleniumServer < Sinatra::Base
         ''
       end
     end
+
+    def debugger_websocket_url
+      uri = URI('http://localhost:9222/json')
+      res = Net::HTTP.get_response(uri)
+      pages = JSON.parse(res.body)
+      websocket_uri = pages.first['webSocketDebuggerUrl']
+    end
   end
 
   # Documentation:
@@ -67,14 +93,10 @@ class SeleniumServer < Sinatra::Base
       content_type :json
       _uuid_ = SecureRandom.uuid
 
-      $connections[_uuid_] = {}
+      set_connection(_uuid_, {})
+      websocket_uri = debugger_websocket_url
 
-      uri = URI('http://localhost:9222/json')
-      res = Net::HTTP.get_response(uri)
-      pages = JSON.parse(res.body)
-      websocket_uri = pages.first['webSocketDebuggerUrl']
-
-      $connections[_uuid_][:bridge] = Server::Bridge.new(websocket_uri)
+      connections[_uuid_][:bridge] = Server::Bridge.new(websocket_uri)
 
       {
         :status    => 0,
@@ -99,7 +121,10 @@ class SeleniumServer < Sinatra::Base
     end
 
     delete "/session/:sessionId" do
-      $connections.delete(params[:sessionId])
+      if connections && connections[ params[:sessionId] ]
+        connections[ params[:sessionId ] ] = nil
+        connections.delete(params[:sessionId])
+      end
       status 204
       ''
     end
@@ -126,6 +151,9 @@ class SeleniumServer < Sinatra::Base
 
     # Refresh the current page.
     post "/session/:sessionId/refresh" do
+      result_response :json do |bridge, json|
+        bridge.page_reload
+      end
     end
 
     # Inject a snippet of JavaScript into the page for execution in the context of the currently selected frame.
@@ -134,16 +162,9 @@ class SeleniumServer < Sinatra::Base
 
     # Take a screenshot of the current page.
     get "/session/:sessionId/screenshot" do
-      conn = $connections[params[:sessionId]]
-      screenshot_base64 = conn[:bridge].screenshot
-
-      content_type :json
-      {
-        :status    => 0,
-        :sessionId => params[:sessionId],
-        :value     => screenshot_base64,
-        :class     => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.screenshot
+      end
     end
 
 
@@ -151,10 +172,6 @@ class SeleniumServer < Sinatra::Base
     end
 
     get "/session/:sessionId/title" do
-    end
-
-    # Search for an element on the page, starting from the identified element.
-    post "/session/:sessionId/element" do
     end
 
     # Search for multiple elements on the page, starting from the identified element.
@@ -210,17 +227,9 @@ class SeleniumServer < Sinatra::Base
     end
 
     get '/session/:sessionId/element/:id/attribute/:name' do
-      conn = $connections[params[:sessionId]]
-      result_value = conn[:bridge].attribute(params[:id], params[:name])
-
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.attribute(params[:id], params[:name])
+      end
     end
     # /attribute/type
     # /attribute/isContentEditable
@@ -228,65 +237,33 @@ class SeleniumServer < Sinatra::Base
     # Inject a snippet of JavaScript into the page for execution 
     # in the context of the currently selected frame.
     post '/session/:sessionId/execute' do
-      conn = $connections[params[:sessionId]]
-      json = JSON.parse(request.body.read)
-      result_value = conn[:bridge].execute_json(json)
-      # status 204
-      # ''
-      content_type :json
-      {
-        :status => 0,
-        :sessionId => params[:sessionId],
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.execute_json(json)
+      end
     end
-
 
     post '/session/:sessionId/headers' do
-      conn = $connections[params[:sessionId]]
-      json = JSON.parse(request.body.read)
-      conn[:bridge].http_headers(json['headers'])
-      status 204
-      ''
+      result_response do |bridge, json|
+        bridge.http_headers(json['headers'])
+      end
     end
 
-
     post '/session/:sessionId/element/:id/value' do
-      conn = $connections[params[:sessionId]]
-      json = JSON.parse(request.body.read)
-      result_value = conn[:bridge].set_value(params[:id], json)
-
-      status 204
-      ''
+      result_response do |bridge, json|
+        bridge.set_value(params[:id], json)
+      end
     end
 
     get "/session/:sessionId/network_traffic" do
-      $stdout.puts "\n\n**** NETWORK TRAFFIC \n\n"
-      conn = $connections[params[:sessionId]]
-      traffic = conn[:bridge].network_traffic
-
-      content_type :json
-      {
-        :status => 0,
-        :value => traffic,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.network_traffic
+      end
     end
 
     get "/session/:sessionId/cookie" do
-      conn = $connections[params[:sessionId]]
-      result_value = conn[:bridge].cookie
-
-      content_type :json
-      {
-        :status => 0,
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.cookie
+      end
     end
 
     delete "/session/:sessionId/cookie" do
@@ -296,16 +273,9 @@ class SeleniumServer < Sinatra::Base
     end
 
     get "/session/:sessionId/reload" do
-      conn = $connections[params[:sessionId]]
-      result_value = conn[:bridge].page_reload
-
-      content_type :json
-      {
-        :status => 0,
-        :value => result_value,
-        :state => nil,
-        :class => "org.openqa.selenium.remote.Response"
-      }.to_json
+      result_response :json do |bridge, json|
+        bridge.page_reload
+      end
     end
   end
 

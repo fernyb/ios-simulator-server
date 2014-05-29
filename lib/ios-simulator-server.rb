@@ -13,12 +13,7 @@ Selenium::WebDriver::Remote::Bridge.command :setHeaders,        :post,   "/wd/hu
 
 Capybara::Selenium::Driver.class_eval do
   def network_traffic
-    #require 'pp'
-    #require './network_traffic.rb'
-    # $stdout.puts "***** URL: #{ @options[:url] }\n\n"
     result = browser.send(:bridge).send(:execute, :getNetworkTraffic)
-    # $stdout.puts "*** Network Traffic \n\n"
-    # $stdout.puts PP.pp(result, ''), "\n\n"
     result
   end
 
