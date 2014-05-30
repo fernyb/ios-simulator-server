@@ -11,6 +11,9 @@ class RemoteDebugger
   NETWORK = {
   }
 
+  PAGE = {
+  }
+
   attr_accessor :send_count
   attr_accessor :network
   attr_accessor :message_resp
@@ -63,16 +66,28 @@ class RemoteDebugger
               elsif json_data['method'] == "Network.responseReceived"
                 add_to_network_response(json_data)
               end
-
               @network << json_data
               next
             end
+
+            if json_data.key?('method') && json_data['method'] =~ /Page/
+              add_to_page_notification(json_data)
+              next
+            end
+
             # messages << frame.to_s
             @message_resp << frame.data
           end
         end
       end
     end
+  end
+
+  def add_to_page_notification(json)
+    @mutex.synchronize {
+      PAGE['notifications'] ||= []
+      PAGE['notifications'] << json
+    }
   end
 
   def add_to_network_request(json)
@@ -109,6 +124,12 @@ class RemoteDebugger
     }
   end
 
+  def page_notifications
+    @mutex.synchronize {
+      PAGE
+    }
+  end
+
   def clear_network
     @mutex.synchronize {
       @network = []
@@ -136,6 +157,7 @@ class RemoteDebugger
   end
 
   def page_navigate(url)
+    enable_page_notifications
     network_disable
     network_enable
     clear_network
@@ -161,6 +183,14 @@ class RemoteDebugger
     result = send(data)
     # puts "\n\n RESULT: \n", result, "\n\n"
     result
+  end
+
+  def enable_page_notifications
+    data = {
+      :id     => @send_count,
+      :method => "Page.enable"
+    }.to_json
+    result = send(data)
   end
 
   def network_enable

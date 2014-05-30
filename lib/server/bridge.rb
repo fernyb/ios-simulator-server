@@ -15,6 +15,20 @@ class Bridge
     @debugger.page_navigate(url)
   end
 
+  def load_atoms
+    result = self.eval_js("typeof(goog) === 'undefined' && typeof(bot) === 'undefined'")
+    if result == false
+      return
+    end
+
+    atoms_file = File.expand_path(File.dirname(__FILE__)) + "/atoms.js"
+    atoms_data = File.open(atoms_file, "r") {|f| f.read }
+    #$stdout.puts "\n\n****** Atoms: #{atoms_file} \n\n #{ atoms_data }\n\n"
+    self.eval_js(atoms_data)
+    atoms_data = nil
+    atoms_file = nil
+  end
+
   def elements(using, value)
     elements = []
     self.current_selector = value
@@ -153,16 +167,9 @@ class Bridge
   end
 
   def displayed?(element_id)
-    js = %Q{window.getComputedStyle(__elements[#{ element_id }], null).getPropertyValue("display");}
-    result = @debugger.runtime_evaluate(js)
-    result = result.first
-    json = JSON.parse(result)
-    result_value = nil
-    json_result = json['result']
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "string"
-      result_value = json_result['result']['value']
-    end
-    result_value = (result_value != "none")
+    self.load_atoms
+    js = %Q{bot.dom.isShown(__elements[#{ element_id }])}
+    result_value = self.eval_js(js)
   end
 
   def text(element_id)
@@ -196,6 +203,19 @@ class Bridge
     json_result = json['result']
     result_value = nil
     if json_result['wasThrown'] == false && json_result['result']['type'] == "string"
+      result_value = json_result['result']['value']
+    end
+    result_value
+  end
+
+  def eval_js(js)
+    result = @debugger.runtime_evaluate(js)
+    result = result.first
+    json = JSON.parse(result)
+    json_result = json['result']
+    #$stdout.puts "\n\n#{ json_result }\n\n"
+    result_value = nil
+    if json_result && json_result['wasThrown'] == false && json_result['result']
       result_value = json_result['result']['value']
     end
     result_value
