@@ -255,27 +255,14 @@ class Bridge
   end
 
   def set_value(element_id, json)
+    load_atoms
     strvalue = json['value'].first
-    js = %Q{
-      var _simulate_key = function(element, letter) {
-       var keyDownEvent = new KeyboardEvent("keydown", {key : letter, char : letter, shiftKey: true});
-       element.dispatchEvent(keyDownEvent);
-       element.value += letter;
-       var keyUpEvent = new KeyboardEvent("keyup", {key : letter, char : letter, shiftKey: true});
-       element.dispatchEvent(keyUpEvent);
-      };
 
+    js = %Q{
       var text = "#{ strvalue }";
-      var element = __elements[#{ element_id }];
-      var letters = text.split("");
-      for(var i=0; i<letters.length; i++) {
-       var letter = letters[i];
-       setTimeout(function() {
-        var letter = arguments[0];
-        _simulate_key(element, letter);
-       }, 100 * i, letter);
-      }
+      bot.action.type(__elements[#{ element_id }], text);
     }
+
     # keydown, keypress, and keyup events
     result = @debugger.runtime_evaluate(js)
     sleep (100.0 * strvalue.size.to_i ) / 1000.0
