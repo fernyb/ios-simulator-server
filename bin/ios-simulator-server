@@ -1,6 +1,10 @@
 #!/usr/bin/env ruby
 
 
-require 'ios-simulator-server/server'
+begin
+  require 'ios-simulator-server/server'
+rescue LoadError => e
+  require File.expand_path(File.dirname(__FILE__) + "/../lib/server/server.rb")
+end
 
 SeleniumServer.run!
