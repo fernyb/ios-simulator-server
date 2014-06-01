@@ -13,6 +13,12 @@
 <div id="result">
 </div>
 
+<div id="box">
+  <span>
+    <a href="#">Hello World</a>
+  </span>
+</div>
+
 <script>
 var test = function() {
   var el = document.getElementById("hello");
@@ -20,6 +26,7 @@ var test = function() {
 
   console.log( bot.dom.isShown(parent) );
   console.log( bot.dom.isShown(el) );
+  
 
   var isShown = bot.dom.isShown(el);
   if(isShown === true) {

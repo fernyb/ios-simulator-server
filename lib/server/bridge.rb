@@ -112,100 +112,41 @@ class Bridge
 
 
   def elements_by_css(value)
-    selector = value
-    result = @debugger.runtime_evaluate(%Q{__elements = document.querySelectorAll("#{ selector }"); __elements.length;})
-    json = JSON.parse(result.first)
-    json_result = json['result']
-    elements_count = 0
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "number"
-      elements_count = json_result['result']['value']
-    end
+    load_atoms
+    js = %Q{ __elements = bot.locators.findElements({ css: "#{ value }" }); __elements.length; }
+    elements_count = eval_js(js)
     elements = 0.upto(elements_count - 1).map {|idx| {"ELEMENT" => idx.to_s} }
   end
 
   def elements_by_xpath(value)
-    # {"using":"xpath","value":".//input[./@type = 'submit' or ./@type = 'reset' or ./@type = 'image' or ./@type = 'button'][((./@id = 'Search' or ./@value = 'Search') or ./@title = 'Search')] | .//input[./@type = 'image'][./@alt = 'Search'] | .//button[(((./@id = 'Search' or ./@value = 'Search') or normalize-space(string(.)) = 'Search') or ./@title = 'Search')] | .//input[./@type = 'image'][./@alt = 'Search']"}
-    selector = value
-    js = %Q{
-      var elements = document.evaluate("#{ value }", document, null, XPathResult.ANY_TYPE, null);
-      __elements = [];
-      while(item = elements.iterateNext()) {
-        __elements.push(item);
-      }
-      __elements.length;
-    }
-
-    result = @debugger.runtime_evaluate(js)
-    json = JSON.parse(result.first)
-    json_result = json['result']
-    elements_count = 0
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "number"
-      elements_count = json_result['result']['value']
-    end
+    load_atoms
+    js = %Q{ __elements = bot.locators.findElements({ xpath: "#{ value }" }); __elements.length; }
+    elements_count = eval_js(js)
     elements = 0.upto(elements_count - 1).map {|idx| {"ELEMENT" => idx.to_s} }
   end
 
   def enabled?(element_id)
-    js = %Q{
-      var is_enabled = false;
-      if(__elements[#{ element_id }]) {
-        is_enabled = (__elements[#{ element_id }].disabled == false);
-      }
-      is_enabled;
-    }
-    result = @debugger.runtime_evaluate(js)
-    result = result.first
-    json = JSON.parse(result)
-    $stdout.puts json.inspect, "\n\n\n\n"
-
-    result_value = nil
-    json_result = json['result']
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "boolean"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    load_atoms
+    eval_js %Q{ bot.dom.isEnabled(__elements[#{ element_id }]) }
   end
 
   def displayed?(element_id)
-    self.load_atoms
-    js = %Q{bot.dom.isShown(__elements[#{ element_id }])}
-    result_value = self.eval_js(js)
+    load_atoms
+    eval_js %Q{ bot.dom.isShown(__elements[#{ element_id }]) }
   end
 
   def text(element_id)
-    result = @debugger.runtime_evaluate("__elements[#{ element_id }].innerText")
-    result = result.first
-    json = JSON.parse(result)
-    json_result = json['result']
-    result_value = ""
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "string"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    load_atoms
+    eval_js %Q{ bot.dom.getVisibleText(__elements[#{ element_id }]) }
   end
 
   def name(element_id)
-    result = @debugger.runtime_evaluate("__elements[#{ element_id }].tagName")
-    result = result.first
-    json = JSON.parse(result)
-    json_result = json['result']
-    result_value = ""
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "string"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    eval_js %Q{ __elements[#{ element_id }].tagName }
   end
 
   def attribute(element_id, attr_name)
-    result = @debugger.runtime_evaluate("__elements[#{ element_id }].#{attr_name.strip}")
-    result = result.first
-    json = JSON.parse(result)
-    json_result = json['result']
-    result_value = nil
-    if json_result['wasThrown'] == false && json_result['result']['type'] == "string"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    load_atoms
+    eval_js %Q{ bot.dom.getAttribute(__elements[#{ element_id }], "#{ attr_name }") }
   end
 
   def eval_js(js)
