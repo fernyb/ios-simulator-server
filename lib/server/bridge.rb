@@ -43,71 +43,34 @@ class Bridge
   end
 
   def child_elements(element_id, using, value)
-    current_elements_count = elements(self.current_selector, self.current_using).size
+    current_elements_count = eval_js("__elements.length")
+
     if using == "css selector"
-      js = %Q{
-        var element = __elements[#{ element_id }];
-        var elements = element.querySelectorAll("#{ value }");
-        var nodes = [];
-        for(var i=0; i<elements.length; i++) {
-          nodes.push(elements[i]);
-        }
-
-        var new_elements = [];
-        for(var i=0; i<__elements.length; i++) {
-          new_elements.push(__elements[i]);
-        }
-        __elements = new_elements;
-
-        for(var i=0; i<nodes.length; i++) {
-          __elements.push(nodes[i]);
-        }
-        nodes.length;
-      }.strip
+      eval_js %Q{ var child_elements = bot.locators.findElements({ css: "#{ value }" }, __elements[#{ element_id }]); }
     elsif using == "xpath"
-      js = %Q{
-        var element = __elements[#{ element_id }];
-        var elements = document.evaluate("#{ value }", element, null, XPathResult.ANY_TYPE, null);
-        var nodes = [];
-        while(item = elements.iterateNext()) {
-          nodes.push(item);
-        }
-
-        var new_elements = [];
-        for(var i=0; i<__elements.length; i++) {
-          new_elements.push(__elements[i]);
-        }
-        __elements = new_elements;
-
-        for(var i=0; i<nodes.length; i++) {
-          __elements.push(nodes[i]);
-        }
-        nodes.length;
-      }.strip
+      eval_js %Q{ var child_elements = bot.locators.findElements({ xpath: "#{ value }" }, __elements[#{ element_id }]); }
     end
-    # $stdout.puts "\n\n", js, "\n\n"
-    result = @debugger.runtime_evaluate(js)
 
-    begin
-    json = JSON.parse(result.first)
-    rescue Exception, ArgumentError => e
-      $stdout.puts "***** ERROR RESULT: #{ result }\n\n"
-      $stdout.puts "***** ERROR RESULT: #{ e }\n\n"
-      json = {}
-    end
-    json_result = json['result']
-    # $stdout.puts "*** JSON Result: #{ json_result }\n\n"
+    js = %Q{
+      var new_elements = [];
 
-    elements_count = element_id.to_i
-    elements = []
-    if json_result && json_result['wasThrown'] == false && json_result['result']['type'] == "number"
-      elements_count = json_result['result']['value']
-      elements = current_elements_count.upto((current_elements_count + elements_count) - 1).map {|idx|
-        {"ELEMENT" => idx.to_s}
+      for(var i=0; i<__elements.length; i++) {
+        new_elements.push(__elements[i]);
       }
-    end
-    # $stdout.puts "\n\n****** ELEMENTS: #{ elements }\n\n"
-    elements
+      __elements = new_elements;
+      new_elements = null;
+
+      for(var i=0; i<child_elements.length; i++) {
+        __elements.push(child_elements[i]);
+      }
+      child_elements.length;
+    }.strip
+
+    elements_count = eval_js(js)
+
+    elements = current_elements_count.upto((current_elements_count + elements_count) - 1).map {|idx|
+      {"ELEMENT" => idx.to_s}
+    }
   end
 
 
@@ -164,9 +127,7 @@ class Bridge
 
   def click(element_id)
     load_atoms
-    js = %Q{ bot.action.click(__elements[#{ element_id }]); }
-    result = @debugger.runtime_evaluate(js)
-    result = result.first
+    eval_js %Q{ bot.action.click(__elements[#{ element_id }]); }
   end
 
   def execute_json(json)
@@ -184,15 +145,7 @@ class Bridge
     if args.size == 0
       js << "_test();\n"
     end
-    result = @debugger.runtime_evaluate(js)
-    result = result.first
-    json = JSON.parse(result)
-    json_result = json['result']
-    result_value = nil
-    if json_result && json_result['wasThrown'] == false && json_result['result']['type'] != "undefined"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    eval_js js
   end
 
   def set_value(element_id, json)
@@ -246,16 +199,7 @@ class Bridge
   end
 
   def current_url
-    js = "window.location.href"
-    result = @debugger.runtime_evaluate(js)
-    result = result.first
-    json = JSON.parse(result)
-    json_result = json['result']
-    result_value = nil
-    if json_result && json_result['wasThrown'] == false && json_result['result']['type'] != "undefined"
-      result_value = json_result['result']['value']
-    end
-    result_value
+    eval_js "window.location.href"
   end
 
   def page_reload
