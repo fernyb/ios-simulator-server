@@ -172,6 +172,9 @@ class SeleniumServer < Sinatra::Base
     end
 
     get "/session/:sessionId/title" do
+      result_response :json do |bridge, json|
+        bridge.title
+      end
     end
 
     # Search for multiple elements on the page, starting from the identified element.

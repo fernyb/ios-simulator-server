@@ -43,6 +43,7 @@ class Bridge
   end
 
   def child_elements(element_id, using, value)
+    load_atoms
     current_elements_count = eval_js("__elements.length")
 
     if using == "css selector"
@@ -196,6 +197,10 @@ class Bridge
       end
     end
     value
+  end
+
+  def title
+    eval_js "document.title"
   end
 
   def current_url
