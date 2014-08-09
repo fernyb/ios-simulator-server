@@ -9,6 +9,7 @@ require 'active_support/hash_with_indifferent_access'
 require 'active_support/core_ext/object/blank'
 require 'net/http'
 require File.expand_path(File.dirname(__FILE__)) + "/bridge.rb"
+require File.expand_path(File.dirname(__FILE__)) + "/enable_remote_inspector.rb"
 
 
 class SeleniumServer < Sinatra::Base
@@ -282,4 +283,12 @@ class SeleniumServer < Sinatra::Base
     end
   end
 
+  class << self
+    alias_method :__run!, :run!
+
+    def run!
+      Server::EnableRemoteInspector.enable!
+      __run!
+    end
+  end
 end
